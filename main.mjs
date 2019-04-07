@@ -77,9 +77,9 @@ async function acceptUser(user, reg, stage) {
   } else {
     probs = [];
 
-    if(target.MPC)
+    if(target.payload.MPC)
       probs.push(und.sample(bank[target.committee].MPC));
-    if(target.SC)
+    if(target.payload.SC)
       probs.push(und.sample(bank[target.committee].SC));
 
     const primaryRegion = Object.keys(target.payload['1']).find(e => target.payload['1'][e] === 1).substr(0, 2);
