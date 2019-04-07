@@ -46,7 +46,17 @@ function fetchJCCSBank(region, focus, count) {
   const rb = bank.JCCS.regions[region];
   if(!rb) return und.sample(bank.JCCS.SC, count);
   if(Array.isArray(rb)) return und.sample(rb, count);
-  return und.sample(rb[focus], count);
+
+  const bucket = rb[focus] || [];
+  if(bucket.length < count) {
+    // Select the full bucket
+    const others = Object.keys(rb).filter(e => e !== focus).map(k => rb[k]).reduce((acc, e) => acc.concat(e), []);
+    const left = count - bucket.length;
+    const rest = und.sample(others, left);
+
+    return bucket.concat(rest);
+  } else
+    return und.sample(rb[focus], count);
 }
 
 async function acceptUser(user, reg, stage) {
