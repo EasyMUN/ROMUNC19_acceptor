@@ -73,7 +73,7 @@ async function acceptUser(user, reg, stage) {
     // Just sample two
     const easier = und.sample(bank[target.committee].easy, 3);
     const harder = und.sample(bank[target.committee].hard, 2);
-    probs = [easier, harder];
+    probs = [...easier, ...harder];
   } else {
     probs = [];
 
