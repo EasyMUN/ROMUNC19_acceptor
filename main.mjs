@@ -12,7 +12,7 @@ import { key, base } from './config';
 async function parseResp(resp) {
   if(resp.status === 204) return null;
   else if(resp.status >= 400)
-    throw await FetchError.from(resp);
+    throw resp.status;
   else if(resp.headers.get('Content-Type').indexOf('application/json') === 0)
     return resp.json();
   else return resp.text();
@@ -174,8 +174,80 @@ async function bootstrap() {
   }
 }
 
+// The part to sync tags related to interviews
+async function interviewLoop() {
+  console.log('>> Interview Loop');
+
+  const list = await get('/conference/ROMUNC_2019/list');
+
+  const interviews = await get('/conference/ROMUNC_2019/interview');
+  let assignments = await get('/conference/ROMUNC_2019/assignment');
+  let payments = await get('/conference/ROMUNC_2019/payment');
+
+  assignments = assignments.filter(e => e.title.indexOf('学测:') === 0);
+  payments = payments.filter(e => e.desc === '会费');
+
+  let changed = 0;
+
+  for(const r of list) {
+    const user = r.user;
+
+    const original = [...r.tags];
+    const current = original.filter(e => e.indexOf('面试') !== 0);
+
+    const assignment = assignments.find(e => e.assignee._id === user._id);
+    const payment = payments.find(e => e.payee._id === user._id);
+    const left = interviews.filter(e => e.interviewee._id === user._id);
+    if(left.length === 0) {
+      if(assignment && payment && payment.status === 'paid' && (
+        assignment.submitted || new Date(assignment.deadline) > new Date()
+      )) {
+        current.push('面试状态:等待分配');
+      }
+    } else {
+      if(left.every(e => !!e.close)) {
+        current.push('面试状态:等待转接');
+      }
+
+      left.sort((a, b) => new Date(a.creation) - new Date(b.creation));
+
+      let counter = 1;
+      for(const round of left) {
+        current.push(`面试官:第${counter}轮:${round.interviewer.realname}`);
+        ++counter;
+      }
+    }
+
+    let upload = [...current];
+    original.sort();
+    current.sort();
+
+    if(original.length !== current.length || original.some((e, i) => e !== current[i])) {
+      console.log(`Tag changed for ${user.realname}`);
+      console.log(`  >> From ${r.tags.join(', ')}`);
+      console.log(`  >> To ${upload.join(', ')}`);
+      ++changed;
+
+      await post(`/conference/ROMUNC_2019/list/${user._id}/tags`, upload, 'PUT');
+    }
+  }
+  console.log(`Total changed: ${changed}`);
+}
+
+function wait(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+async function loop() {
+  while(true) {
+    interviewLoop();
+    await wait(60 * 60 * 1000);
+  }
+}
+
 // Avoid racing (to a certain extend)
 bootstrap().then(() => {
+  loop();
   app.listen(14232, () => {
     console.log('>> Server up at 14232');
   });
