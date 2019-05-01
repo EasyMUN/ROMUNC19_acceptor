@@ -1,2 +1,4 @@
 /config.mjs
 /node_modules
+
+.*.sw[a-p]

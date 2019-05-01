@@ -190,10 +190,33 @@ async function interviewLoop() {
   let changed = 0;
 
   for(const r of list) {
-    const user = r.user;
+    const detail = await get(`/conference/ROMUNC_2019/list/${r.user._id}`);
+    const user = detail.user;
 
-    const original = [...r.tags];
-    const current = original.filter(e => e.indexOf('面试') !== 0);
+    const original = [...detail.tags];
+    const current = original.filter(e => e.indexOf('面试') !== 0 && e.indexOf('志愿') !== 0);
+
+    const reg = detail.reg;
+    let counter = 1;
+    for(const r of reg) {
+      current.push(`志愿-${counter}:${r.committee}`);
+      ++counter;
+
+      if(r.payload) {
+        // is JCCS
+        const { MPC, SC, '1': regions, '2': aspects } = r.payload;
+
+        if(MPC)
+          current.push(`志愿-JCCS-MPC`);
+        if(SC)
+          current.push(`志愿-JCCS-SC`);
+
+        for(const region in regions)
+          current.push(`志愿-JCCS-地区-${regions[region]}:${region.substr(0, 2)}`);
+        for(const aspect in aspects)
+          current.push(`志愿-JCCS-方向-${aspects[aspect]}:${aspect.substr(0, 4)}`);
+      }
+    }
 
     const assignment = assignments.find(e => e.assignee._id === user._id);
     const payment = payments.find(e => e.payee._id === user._id);
@@ -224,7 +247,7 @@ async function interviewLoop() {
 
     if(original.length !== current.length || original.some((e, i) => e !== current[i])) {
       console.log(`Tag changed for ${user.realname}`);
-      console.log(`  >> From ${r.tags.join(', ')}`);
+      console.log(`  >> From ${detail.tags.join(', ')}`);
       console.log(`  >> To ${upload.join(', ')}`);
       ++changed;
 
